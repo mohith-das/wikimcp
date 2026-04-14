@@ -1,2 +1,2 @@
 """wikimcp — Git-backed multi-user wiki MCP server."""
-__version__ = "0.1.1"
+__version__ = "0.1.2"

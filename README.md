@@ -6,7 +6,7 @@
 **Git-backed multi-user wiki MCP server — long-term memory for any AI.**
 
 Your knowledge compounds across conversations instead of resetting every session.
-Inspired by [Andrej Karpathy's LLM Wiki pattern](https://x.com/karpathy/status/1876288339308638596).
+Inspired by [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
 ---
 
