@@ -7,6 +7,7 @@ Exports the factory functions and auth/router utilities for the server.
 from .mcp_server import create_local_server, create_server_mode
 from .auth import hash_token, validate_token, extract_token, update_last_active
 from .router import resolve_wiki_dir, get_auto_push_remotes
+from .git_http import create_git_http_router
 
 __all__ = [
     # Server factories
@@ -20,4 +21,6 @@ __all__ = [
     # Router utilities
     "resolve_wiki_dir",
     "get_auto_push_remotes",
+    # Git HTTP
+    "create_git_http_router",
 ]

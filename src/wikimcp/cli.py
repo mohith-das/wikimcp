@@ -359,6 +359,16 @@ def server_start(server_dir: str, port: Optional[int], host: Optional[str]) -> N
     except Exception as exc:
         console.print(f"[yellow]Warning:[/yellow] Could not mount web reader: {exc}")
 
+    # Include the git HTTP backend
+    try:
+        from wikimcp.server.git_http import create_git_http_router
+
+        git_router = create_git_http_router(config_path)
+        app.include_router(git_router)
+        console.print(f"  Git hosting:   [cyan]http://{listen_host}:{listen_port}/git/<username>[/cyan]")
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Could not mount git HTTP backend: {exc}")
+
     # Write PID file so `server stop` can find the process
     _write_pid(os.getpid())
     try:

@@ -64,6 +64,11 @@ def init_repo(wiki_dir: Path) -> None:
             author=_ACTOR,
             committer=_ACTOR,
         )
+        # Enable HTTP cloning
+        try:
+            repo.git.update_server_info()
+        except GitCommandError:
+            pass
 
 
 def auto_commit(wiki_dir: Path, message: str) -> None:
@@ -96,6 +101,12 @@ def auto_commit(wiki_dir: Path, message: str) -> None:
         author=_ACTOR,
         committer=_ACTOR,
     )
+
+    # Update server info so the repo is cloneable over HTTP (dumb protocol)
+    try:
+        repo.git.update_server_info()
+    except GitCommandError:
+        pass  # non-critical — only needed for HTTP hosting
 
 
 def add_remote(wiki_dir: Path, name: str, url: str) -> None:
