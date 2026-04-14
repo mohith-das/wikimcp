@@ -25,6 +25,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0.0"]
 
+[project.urls]
+Homepage = "https://github.com/mohith-das/wikimcp"
+Repository = "https://github.com/mohith-das/wikimcp"
+Issues = "https://github.com/mohith-das/wikimcp/issues"
+
 [project.scripts]
 wikimcp = "wikimcp.cli:main"
 

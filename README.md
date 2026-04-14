@@ -1,3 +1,6 @@
+[![PyPI version](https://badge.fury.io/py/wikimcp.svg)](https://pypi.org/project/wikimcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # wikimcp
 
 **Git-backed multi-user wiki MCP server — long-term memory for any AI.**
