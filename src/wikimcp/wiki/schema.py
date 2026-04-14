@@ -10,9 +10,48 @@ def get_claude_md_template() -> str:
     return """\
 # CLAUDE.md — Wiki Schema & Workflow Guide
 
-This file describes the structure and conventions of this wiki. Read it at the
-start of every session so you understand how knowledge is organised and how to
-maintain it correctly.
+Read this at the start of every session. It tells you how this wiki works,
+how knowledge is organised, and what you must do to maintain it.
+
+---
+
+## The Core Idea
+
+This wiki is a **persistent, compounding knowledge base** — not a chat log,
+not RAG. Instead of re-deriving knowledge from raw documents on every query,
+you incrementally build and maintain a structured collection of interlinked
+markdown pages. When a new source arrives you don't just index it — you read
+it, extract the key information, and integrate it into existing pages.
+Cross-references are already there. Contradictions have already been flagged.
+The synthesis reflects everything the user has read and discussed.
+
+The wiki keeps getting richer with every source added and every question asked.
+
+**Division of labour:**
+- The **user** curates sources, directs analysis, and asks good questions.
+- **You** (the AI) do all the bookkeeping — summarising, cross-referencing,
+  filing, and maintenance that makes a knowledge base useful over time.
+
+The user never (or rarely) writes wiki pages directly. You write and maintain
+all of it. The user reads the results in Obsidian, the web reader, or by
+asking you questions.
+
+---
+
+## Three Layers
+
+1. **Raw sources** (`raw/`) — the user's curated documents. Articles, papers,
+   notes, images, data files. These are immutable — you read from them but
+   **never modify them**. This is the source of truth.
+
+2. **The wiki** (`wiki/`) — your generated markdown files. Summaries, entity
+   pages, topic pages, comparisons, chat records. You own this layer entirely.
+   You create pages, update them when new sources arrive, maintain
+   cross-references, and keep everything consistent.
+
+3. **The schema** (this file) — tells you how the wiki is structured, what
+   conventions to follow, and what workflows to execute. You and the user
+   co-evolve this over time.
 
 ---
 
@@ -25,15 +64,15 @@ maintain it correctly.
     index.md             ← master catalog (read this first on every query)
     log.md               ← append-only activity log (one entry per session)
     chats/               ← one page per conversation (chat_YYYY-MM-DD_N.md)
-    topics/              ← concept and topic pages (e.g. topics/graph-algorithms.md)
-    entities/            ← people, tools, projects (e.g. entities/python.md)
-  raw/                   ← source documents the user drops in; never modify these
+    topics/              ← concept and topic pages
+    entities/            ← people, tools, projects
+  raw/                   ← user's source documents — never modify these
   .git/                  ← git repo — every write is auto-committed
 ```
 
 ---
 
-## Page Frontmatter Conventions
+## Page Frontmatter
 
 Every wiki page (except log.md) should begin with YAML front matter:
 
@@ -46,69 +85,84 @@ updated: YYYY-MM-DD
 ---
 ```
 
-- `title` — human-readable page title
-- `tags` — list of relevant tags for cross-referencing
-- `created` — ISO date the page was first written
-- `updated` — ISO date the page was last modified (update on every write)
-- Omit fields you don't have values for rather than leaving them blank
+- Update the `updated` field on every write
+- Omit fields you don't have values for
 
 ---
 
-## Post-Chat Workflow
+## Operations
+
+### Ingest
+
+When the user drops a new source into `raw/` and asks you to process it:
+
+1. Read the source from `raw/<filename>`
+2. Discuss key takeaways with the user if they're present
+3. Extract entities, topics, and facts
+4. Create or update pages under `wiki/topics/` and `wiki/entities/` — a
+   single source might touch 10–15 wiki pages
+5. Write a summary page under `wiki/chats/`
+6. Update `wiki/index.md` to include new pages
+7. Append to `wiki/log.md` with `operation="ingest"`
+
+Do NOT modify anything inside `raw/`.
+
+### Query
+
+When the user asks a question:
+
+1. Call `read_index` to load `wiki/index.md` — this is your map
+2. Follow links to relevant pages with `read_page`
+3. If it's not in the index, use `search_wiki`
+4. Synthesise and answer — cite the pages you used
+
+**Important:** good answers should be filed back into the wiki as new pages.
+A comparison you produced, an analysis, a connection you discovered — these
+are valuable and should not disappear into chat history. This way the user's
+explorations compound in the knowledge base just like ingested sources do.
+
+Do NOT guess or hallucinate wiki content. Always read first.
+
+### Lint
+
+Periodically (or when the user asks), health-check the wiki. Look for:
+
+- **Contradictions** between pages that newer sources have superseded
+- **Stale claims** that need updating
+- **Orphan pages** with no inbound links from other pages
+- **Missing pages** — important concepts mentioned but lacking their own page
+- **Missing cross-references** between related pages
+- **Data gaps** that could be filled with a web search or new source
+
+Suggest new questions to investigate and new sources to look for. This keeps
+the wiki healthy as it grows. Log lint passes with `operation="lint"`.
+
+### Post-Chat
 
 At the end of every conversation session, you MUST:
 
 1. **Update relevant pages** — for every topic, entity, or concept discussed,
-   update its page under `wiki/topics/` or `wiki/entities/`. Create the page
-   if it does not exist.
+   update or create its page under `wiki/topics/` or `wiki/entities/`.
 
-2. **Write a chat summary** — create a new page under `wiki/chats/` named
-   `chat_YYYY-MM-DD_N.md` (where N is a sequence number if there are multiple
-   chats on the same day). Include:
+2. **Write a chat summary** — create `wiki/chats/chat_YYYY-MM-DD_N.md` with:
    - A 2–5 sentence summary of what was discussed
-   - Key decisions or conclusions reached
-   - Links to any topic/entity pages that were updated
+   - Key decisions or conclusions
+   - Links to pages that were updated
 
-3. **Append to the log** — call `append_log` with a one-line summary of the
-   session and any operation label (e.g. `operation="chat"`).
+3. **Append to the log** — call `append_log` with a one-line summary and
+   `operation="chat"`.
 
-4. **Update index.md** — if new pages were created or significant changes were
-   made, update the master catalog in `wiki/index.md` to reflect them.
-
----
-
-## Ingest Workflow
-
-When a user asks you to process a document from `raw/`:
-
-1. Read the document from `raw/<filename>`
-2. Extract key entities, topics, and facts
-3. Create or update pages under `wiki/topics/` and `wiki/entities/`
-4. Write a summary page under `wiki/chats/` or a dedicated ingest note
-5. Update `wiki/index.md` to include the new pages
-6. Append to `wiki/log.md` with `operation="ingest"`
-
-Do NOT modify anything inside `raw/` — it is the user's source material.
+4. **Update index.md** — if new pages were created or significant changes
+   were made.
 
 ---
 
-## Query Workflow
+## Indexing & Logging
 
-When a user asks a question or wants to explore the wiki:
-
-1. Call `read_index` to load `wiki/index.md` — this is your map
-2. Identify relevant sections and follow links to specific pages
-3. Call `read_page` for each relevant page
-4. If you need to find something not in the index, call `search_wiki`
-5. Synthesise and answer — cite the pages you used
-
-Do NOT guess or hallucinate wiki content. Always read first.
-
----
-
-## index.md Format
-
-`wiki/index.md` is the master catalog. Keep it structured like this:
+**index.md** is content-oriented — a catalog of everything in the wiki. Each
+page listed with a link, a one-line summary, organised by category. You update
+it on every ingest and significant change. When answering a query, read the
+index first to find relevant pages, then drill into them.
 
 ```markdown
 # Wiki Index
@@ -127,26 +181,27 @@ _Last updated: YYYY-MM-DD_
 - YYYY-MM-DD: [Chat summary](chats/chat_YYYY-MM-DD_1.md)
 ```
 
-- Keep each section alphabetically sorted
-- Each entry is a markdown link followed by a brief one-line description
-- Update the "Last updated" date on every modification
-- "Recent Activity" shows the last 5–10 chat entries
+Keep sections alphabetically sorted. Update the "Last updated" date on every
+modification. "Recent Activity" shows the last 5–10 entries.
+
+**log.md** is chronological — an append-only record of what happened and when
+(ingests, queries, chats, lint passes). Each entry starts with a heading like
+`## 2026-04-14T10:30:00Z [ingest]` so it's parseable and scannable.
 
 ---
 
-## Tone & Style Guidelines
+## Tone & Style
 
-- **Concise** — prefer bullet points and short paragraphs over prose
+- **Concise** — bullet points and short paragraphs over prose
 - **Factual** — record what was said or decided; no speculation
-- **Linked** — always link related pages using relative markdown links
-- **Dated** — include dates wherever relevant (decisions, facts, events)
-- **Neutral** — write in third person or imperative; no "I" or "we"
-- **Evergreen** — write pages so they remain useful weeks or months later;
-  avoid phrases like "recently" or "last week" — use explicit dates instead
+- **Linked** — always cross-reference related pages with relative markdown links
+- **Dated** — include explicit dates, never "recently" or "last week"
+- **Neutral** — third person or imperative; no "I" or "we"
+- **Evergreen** — write pages so they remain useful weeks or months later
 
 ---
 
-## File Naming Conventions
+## File Naming
 
 | Location | Pattern | Example |
 |----------|---------|---------|
@@ -157,13 +212,15 @@ _Last updated: YYYY-MM-DD_
 
 ---
 
-## What the AI Must Never Do
+## Rules
 
 - Never modify files inside `raw/`
 - Never delete `index.md` or `log.md`
-- Never write outside the `wiki/` directory (except CLAUDE.md which is read-only)
-- Never use absolute paths when calling wiki tools — always use paths relative
-  to the `wiki/` subdirectory (e.g. `topics/python.md`, not `/wiki/topics/python.md`)
+- Never write outside the `wiki/` directory
+- Always use paths relative to `wiki/` (e.g. `topics/python.md`)
+- File back valuable answers as new wiki pages — explorations should compound
+- When new information contradicts existing pages, update the pages and note
+  the change
 """
 
 
