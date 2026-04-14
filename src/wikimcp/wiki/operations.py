@@ -90,10 +90,17 @@ def wiki_info(wiki_dir: Path) -> Dict[str, Any]:
         text = log_path.read_text(encoding="utf-8")
         log_entries = len(re.findall(r"^## ", text, re.MULTILINE))
 
+    # Read CLAUDE.md (wiki schema / workflow instructions) if it exists
+    schema = ""
+    claude_md = wiki_dir / "CLAUDE.md"
+    if claude_md.exists():
+        schema = claude_md.read_text(encoding="utf-8")
+
     return {
         "page_count": page_count,
         "log_entries": log_entries,
         "wiki_root": str(wiki_dir.resolve()),
+        "schema": schema,
     }
 
 

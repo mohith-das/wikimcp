@@ -29,11 +29,17 @@ from .router import resolve_wiki_dir, get_auto_push_remotes
 
 def _format_wiki_info(info: dict) -> str:
     """Format wiki_info dict as a readable string."""
-    return (
-        f"Wiki root: {info['wiki_root']}\n"
-        f"Pages: {info['page_count']}\n"
-        f"Log entries: {info['log_entries']}"
-    )
+    parts = [
+        f"Wiki root: {info['wiki_root']}",
+        f"Pages: {info['page_count']}",
+        f"Log entries: {info['log_entries']}",
+    ]
+    schema = info.get("schema", "")
+    if schema:
+        parts.append("")
+        parts.append("--- Wiki Schema & Workflow Instructions ---")
+        parts.append(schema)
+    return "\n".join(parts)
 
 
 def _format_search_results(results: list) -> str:
@@ -73,7 +79,7 @@ def create_local_server(wiki_dir: Path) -> FastMCP:
 
     @mcp.tool()
     def wiki_info() -> str:
-        """Return page count, log entries, and wiki root path. Call at session start."""
+        """Return wiki stats and schema instructions. MUST be called at the start of every session."""
         try:
             info = operations.wiki_info(wiki_dir)
             return _format_wiki_info(info)
@@ -261,7 +267,7 @@ def create_server_mode(config_path: Path):
 
     @mcp.tool()
     def wiki_info() -> str:
-        """Return page count, log entries, and wiki root path. Call at session start."""
+        """Return wiki stats and schema instructions. MUST be called at the start of every session."""
         try:
             wiki_dir = _ctx()["wiki_dir"]
             info = operations.wiki_info(wiki_dir)
