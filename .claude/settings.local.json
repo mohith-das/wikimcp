@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m py_compile src/wikimcp/wiki/schema.py)",
+      "Bash(python3 -m py_compile src/wikimcp/wiki/git_layer.py)",
+      "Bash(python3 -m py_compile src/wikimcp/wiki/operations.py)",
+      "Bash(python3 -m py_compile src/wikimcp/wiki/__init__.py)",
+      "Bash(wc:*)",
+      "Bash(wikimcp:*)",
+      "Bash(pip install:*)",
+      "Bash(python -c ':*)",
+      "Bash(mktemp -d)",
+      "Bash(ls -la __TRACKED_VAR__/test-wiki/.git/)",
+      "Bash(pytest tests/ -v)"
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}wikimcp{% endblock %} — wikimcp</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="/wiki/{{ username }}?token={{ token }}" class="brand">wikimcp</a>
+        <span class="username-badge">{{ username }}</span>
+      </div>
+
+      <!-- Search bar -->
+      <form class="sidebar-search" action="/wiki/{{ username }}/_search" method="get">
+        <input type="hidden" name="token" value="{{ token }}" />
+        <input
+          type="search"
+          name="q"
+          placeholder="Search wiki…"
+          aria-label="Search wiki"
+          value="{% block search_value %}{% endblock %}"
+        />
+        <button type="submit" aria-label="Search">&#128269;</button>
+      </form>
+
+      <!-- Page tree -->
+      <nav class="page-tree" aria-label="Page navigation">
+        {% block sidebar %}
+        {% if page_tree %}
+          <ul>
+          {% for item in page_tree %}
+            <li class="depth-{{ item.depth }}">
+              <a href="{{ item.url }}">{{ item.label }}</a>
+            </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <p class="empty-tree">No pages yet.</p>
+        {% endif %}
+        {% endblock %}
+      </nav>
+    </aside>
+
+    <!-- Main area -->
+    <div class="main-wrapper">
+      <header class="topbar">
+        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar" onclick="document.getElementById('sidebar').classList.toggle('open')">
+          &#9776;
+        </button>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          {% block breadcrumb %}
+          {% if breadcrumbs is defined %}
+            {% for crumb in breadcrumbs %}
+              {% if loop.last %}
+                <span class="crumb current">{{ crumb.label }}</span>
+              {% else %}
+                {% if crumb.url %}
+                  <a class="crumb" href="{{ crumb.url }}">{{ crumb.label }}</a>
+                {% else %}
+                  <span class="crumb">{{ crumb.label }}</span>
+                {% endif %}
+                <span class="crumb-sep">&#47;</span>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% endblock %}
+        </nav>
+      </header>
+
+      <main class="content">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="page-footer">
+        <span>wikimcp &mdash; read-only view</span>
+      </footer>
+    </div>
+
+  </div>
+</body>
+</html>

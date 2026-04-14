@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Search{% endblock %}
+
+{% block search_value %}{{ query }}{% endblock %}
+
+{% block content %}
+<section class="search-page">
+  <h1 class="page-title">Search</h1>
+
+  <!-- Standalone search form (mirrors sidebar search for main-area use) -->
+  <form class="search-form" action="/wiki/{{ username }}/_search" method="get">
+    <input type="hidden" name="token" value="{{ token }}" />
+    <div class="search-row">
+      <input
+        type="search"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search wiki…"
+        aria-label="Search query"
+        autofocus
+      />
+      <button type="submit" class="search-btn">Search</button>
+    </div>
+  </form>
+
+  {% if query %}
+    <p class="search-summary">
+      {% if results %}
+        Found <strong>{{ results | length }}</strong> page{{ 's' if results | length != 1 else '' }} matching
+        &ldquo;<em>{{ query }}</em>&rdquo;.
+      {% else %}
+        No results found for &ldquo;<em>{{ query }}</em>&rdquo;.
+      {% endif %}
+    </p>
+  {% endif %}
+
+  {% if results %}
+    <ul class="search-results">
+      {% for result in results %}
+        <li class="result-card">
+          <a class="result-path" href="{{ result.url }}">{{ result.path }}</a>
+          {% if result.matches %}
+            <ul class="match-lines">
+              {% for match in result.matches[:5] %}
+                <li class="match-line">
+                  <span class="line-number">{{ match.line_number }}</span>
+                  <code class="line-text">{{ match.line }}</code>
+                </li>
+              {% endfor %}
+              {% if result.matches | length > 5 %}
+                <li class="more-matches">
+                  … and {{ result.matches | length - 5 }} more match{{ 'es' if result.matches | length - 5 != 1 else '' }}
+                </li>
+              {% endif %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif not query %}
+    <p class="search-hint">Enter a search term above to search your wiki.</p>
+  {% endif %}
+</section>
+{% endblock %}

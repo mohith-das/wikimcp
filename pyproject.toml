@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wikimcp"
+version = "0.1.0"
+description = "Git-backed multi-user wiki MCP server — LTM for any AI"
+authors = [
+  { name="Mohith Das", email="mohith@tuta.io" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp[cli]>=1.0.0",
+  "fastapi>=0.110.0",
+  "uvicorn>=0.29.0",
+  "jinja2>=3.1.0",
+  "click>=8.1.0",
+  "gitpython>=3.1.0",
+  "rich>=13.0.0",
+  "markdown>=3.5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0"]
+
+[project.scripts]
+wikimcp = "wikimcp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+wikimcp = ["templates/**/*"]

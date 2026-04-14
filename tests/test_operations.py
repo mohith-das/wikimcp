@@ -1,0 +1,118 @@
+"""Tests for wikimcp.wiki.operations using a temporary wiki directory."""
+import pytest
+from pathlib import Path
+
+from wikimcp.wiki.schema import scaffold_wiki
+from wikimcp.wiki.git_layer import init_repo
+from wikimcp.wiki.operations import (
+    wiki_info,
+    write_page,
+    read_page,
+    list_pages,
+    search_wiki,
+    delete_page,
+)
+
+
+@pytest.fixture
+def wiki_dir(tmp_path: Path) -> Path:
+    """Create a scaffolded and git-initialised wiki in a temp directory."""
+    scaffold_wiki(tmp_path)
+    init_repo(tmp_path)
+    return tmp_path
+
+
+def test_wiki_info_returns_dict(wiki_dir: Path) -> None:
+    info = wiki_info(wiki_dir)
+    assert isinstance(info, dict)
+    assert "page_count" in info
+    assert "log_entries" in info
+    assert "wiki_root" in info
+    assert info["wiki_root"] == str(wiki_dir.resolve())
+
+
+def test_wiki_info_page_count_starts_at_zero(wiki_dir: Path) -> None:
+    # scaffold creates index.md and log.md; wiki_info excludes log.md from count
+    info = wiki_info(wiki_dir)
+    # index.md is counted (not excluded), log.md is excluded
+    assert info["page_count"] >= 1
+
+
+def test_write_and_read_page(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/python.md", "# Python\n\nNotes here.")
+    content = read_page(wiki_dir, "topics/python.md")
+    assert "# Python" in content
+    assert "Notes here." in content
+
+
+def test_read_page_not_found(wiki_dir: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        read_page(wiki_dir, "topics/nonexistent.md")
+
+
+def test_write_page_invalid_path(wiki_dir: Path) -> None:
+    with pytest.raises(ValueError):
+        write_page(wiki_dir, "../escape.md", "bad")
+
+
+def test_list_pages_empty(wiki_dir: Path) -> None:
+    # Fresh wiki has index.md and log.md in wiki/
+    pages = list_pages(wiki_dir)
+    assert isinstance(pages, list)
+    assert "index.md" in pages
+
+
+def test_list_pages_with_written_pages(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/alpha.md", "alpha")
+    write_page(wiki_dir, "topics/beta.md", "beta")
+    pages = list_pages(wiki_dir)
+    assert "topics/alpha.md" in pages
+    assert "topics/beta.md" in pages
+
+
+def test_list_pages_subdirectory(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/alpha.md", "alpha")
+    write_page(wiki_dir, "entities/alice.md", "alice")
+    topics = list_pages(wiki_dir, "topics")
+    assert all(p.startswith("topics/") for p in topics)
+
+
+def test_search_wiki_finds_match(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/python.md", "# Python\n\nGreat language.")
+    results = search_wiki(wiki_dir, "Great language")
+    assert len(results) >= 1
+    assert any(r["path"] == "topics/python.md" for r in results)
+
+
+def test_search_wiki_no_match(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/python.md", "# Python\n\nGreat language.")
+    results = search_wiki(wiki_dir, "xyzzy_no_match_here")
+    assert results == []
+
+
+def test_search_wiki_case_insensitive(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/python.md", "Python is awesome")
+    results = search_wiki(wiki_dir, "python is awesome", case_sensitive=False)
+    assert len(results) >= 1
+
+
+def test_delete_page(wiki_dir: Path) -> None:
+    write_page(wiki_dir, "topics/temp.md", "temporary")
+    delete_page(wiki_dir, "topics/temp.md")
+    with pytest.raises(FileNotFoundError):
+        read_page(wiki_dir, "topics/temp.md")
+
+
+def test_delete_page_not_found(wiki_dir: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        delete_page(wiki_dir, "topics/ghost.md")
+
+
+def test_delete_page_protected_index(wiki_dir: Path) -> None:
+    with pytest.raises(PermissionError):
+        delete_page(wiki_dir, "index.md")
+
+
+def test_delete_page_protected_log(wiki_dir: Path) -> None:
+    with pytest.raises(PermissionError):
+        delete_page(wiki_dir, "log.md")
