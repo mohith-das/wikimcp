@@ -3,289 +3,260 @@
 
 # wikimcp
 
-**Git-backed multi-user wiki MCP server — long-term memory for any AI.**
+**Long-term memory for AI — a git-backed personal wiki that any AI client can read and write to.**
 
-Your knowledge compounds across conversations instead of resetting every session.
 Inspired by [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
 ---
 
-## What it is
+## Why this exists
 
-`wikimcp` is a Python package that runs an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server backed by a personal, git-versioned wiki.
+Most people's experience with AI and documents is RAG: upload files, the AI retrieves chunks at query time, generates an answer. The AI rediscovers knowledge from scratch on every question. Nothing accumulates.
 
-- Any MCP-compatible AI client (Claude Desktop, LM Studio, Gemini CLI, ChatGPT, claude.ai) can read and write to the wiki during a conversation.
-- Every write is auto-committed to git — full history, branching, and remote sync (GitHub, Gitea, any bare repo).
-- Users browse their wiki via a read-only web reader or locally in Obsidian.
-- Multi-user server mode: each user has their own wiki, isolated by bearer-token auth.
+wikimcp is different. Instead of retrieving from raw documents each time, **the AI incrementally builds and maintains a personal wiki** — a structured, interlinked collection of markdown files. When you discuss a topic, the AI doesn't just respond — it updates topic pages, creates entity entries, cross-references related concepts, and logs what happened. The knowledge is compiled once and kept current, not re-derived every session.
+
+**The wiki is a persistent, compounding artifact.** Cross-references are already there. Contradictions get flagged. The synthesis reflects everything you've ever discussed. It keeps getting richer with every conversation.
+
+You never write the wiki yourself — the AI writes and maintains all of it. You curate sources, direct the analysis, and ask good questions. The AI does all the bookkeeping — summarising, cross-referencing, filing, and maintenance.
 
 ---
 
-## Quick Start (local, single-user)
+## How it works
+
+Three layers:
+
+1. **Raw sources** (`raw/`) — your documents. Articles, papers, notes. The AI reads from these but never modifies them.
+2. **The wiki** (`wiki/`) — AI-generated markdown files. Topic pages, entity pages, chat summaries, the index. The AI owns this layer entirely.
+3. **The schema** (`CLAUDE.md`) — tells the AI how the wiki is structured and what workflows to follow. Delivered automatically at the start of every session via `wiki_info`.
+
+The AI performs three operations:
+
+- **Ingest** — you drop a source into `raw/`, the AI reads it, extracts key information, creates/updates wiki pages, updates the index and log. A single source can touch 10-15 pages.
+- **Query** — you ask a question, the AI reads the index, navigates to relevant pages, synthesises an answer. Good answers get filed back into the wiki as new pages.
+- **Lint** — periodically health-check for contradictions, orphan pages, stale claims, missing cross-references.
+
+Every write is auto-committed to git. Full history, branching, and remote sync.
+
+---
+
+## Use cases
+
+- **Personal knowledge** — goals, health, self-improvement, journal entries, article notes. Build a structured picture of yourself over time.
+- **Research** — go deep on a topic over weeks. Read papers, articles, reports. The wiki builds a comprehensive synthesis with an evolving thesis.
+- **Reading a book** — file each chapter, build pages for characters, themes, plot threads. By the end you have a rich companion wiki.
+- **Work** — meeting notes, project decisions, team knowledge. The wiki stays current because the AI does the maintenance nobody wants to do.
+- **Learning** — course notes, concept maps, practice problems. Knowledge accumulates instead of fading.
+
+---
+
+## Quick start
 
 ```bash
 pip install wikimcp
-
-# 1. Scaffold the wiki and generate the MCP config snippet
-wikimcp init
-
-# 2. Paste the printed JSON into your Claude Desktop config file
-#    macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
-#    Linux: ~/.config/Claude/claude_desktop_config.json
-
-# 3. Restart Claude Desktop — the wikimcp tools are now available
 ```
 
-The config snippet looks like:
+### Set up the wiki
+
+```bash
+# Default location: ~/llm-wiki
+wikimcp init
+
+# Or pick your own directory
+wikimcp init --wiki-dir ~/my-wiki
+```
+
+This creates the wiki folder structure, initialises a git repo, and prints a JSON config snippet.
+
+### Connect to Claude Desktop
+
+Copy the printed JSON and paste it into your Claude Desktop config:
+
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Linux:** `~/.config/Claude/claude_desktop_config.json`
+
+The snippet looks like:
 
 ```json
 {
   "mcpServers": {
     "wikimcp": {
       "command": "wikimcp",
-      "args": ["serve", "--wiki-dir", "/Users/you/llm-wiki"]
+      "args": ["serve", "--wiki-dir", "/Users/you/my-wiki"]
     }
   }
 }
 ```
 
-Then in any Claude conversation, the AI will call `wiki_info` at the start of each session and keep your wiki updated automatically.
+Restart Claude Desktop.
+
+### Start using it
+
+Open a new Claude conversation. The AI will call `wiki_info` at the start and receive the full wiki schema with workflow instructions.
+
+Just have a normal conversation — discuss a topic, share an idea, ask the AI to process a document. At the end of the session, the AI should automatically:
+
+- Create/update topic and entity pages
+- Write a chat summary
+- Append to the activity log
+- Update the index
+
+If it doesn't do this automatically, tell Claude: **"update the wiki with what we discussed"** — or add this to your Claude Desktop system prompt for hands-free operation:
+
+> You have a wiki connected via MCP. Call wiki_info at the start of every conversation. At the end, update relevant wiki pages, write a chat summary, append to the log, and update the index.
+
+### Browse in Obsidian
+
+Open your wiki folder in [Obsidian](https://obsidian.md/). You'll see every page the AI creates in real time — topics, entities, chat summaries, the index. Use Obsidian's graph view to see how everything connects.
 
 ---
 
-## CLI Reference
+## Sync with GitHub
 
-### Local mode
-
-```bash
-wikimcp init [--wiki-dir ~/llm-wiki]
-```
-Scaffold wiki folder, initialise git repo, print MCP config snippet.
+The wiki is a git repo from the start. To back it up to GitHub:
 
 ```bash
-wikimcp serve [--wiki-dir ~/llm-wiki] [--transport stdio|http] [--host 127.0.0.1] [--port 8765]
+cd ~/my-wiki
+gh repo create my-wiki --private --source=. --remote=origin --push
 ```
-Start the MCP server. `stdio` (default) for Claude Desktop / LM Studio / Gemini CLI. `http` for ChatGPT / claude.ai via ngrok.
 
----
-
-### Server mode (multi-user, always-on)
+Then push periodically:
 
 ```bash
-wikimcp server init [--dir /data/wikimcp] [--port 8765]
+cd ~/my-wiki && git push
 ```
-Initialise the server data directory and `wikimcp.conf`.
+
+Or set up a cron job to auto-push every 5 minutes:
 
 ```bash
-wikimcp server start [--dir /data/wikimcp] [--port 8765] [--host 0.0.0.0]
-```
-Start the multi-user HTTP MCP server + web reader.
-
-- MCP endpoint: `https://host:port/mcp` (bearer-token auth)
-- Web reader: `https://host:port/wiki/<username>` (token auth)
-- Health check: `https://host:port/health`
-
-```bash
-wikimcp server stop
-wikimcp server status [--dir /data/wikimcp]
-```
-
----
-
-### User management
-
-```bash
-wikimcp add-user <username> [--dir /data/wikimcp]
-```
-Create a user, scaffold their wiki, generate their bearer token.
-
-Prints:
-```
-Token:    wikimcp_alice_<random>
-MCP URL:  http://yourserver.com/mcp
-Wiki URL: http://yourserver.com/wiki/alice
-```
-
-```bash
-wikimcp remove-user <username> [--dir /data/wikimcp]
-```
-Delete user folder and config entry. Prompts for confirmation.
-
-```bash
-wikimcp list-users [--dir /data/wikimcp]
-```
-List all users with masked token, page count, and last active timestamp.
-
-```bash
-wikimcp rotate-token <username> [--dir /data/wikimcp]
-```
-Generate a new bearer token. The old token is immediately invalidated.
-
----
-
-### Git remote management
-
-```bash
-wikimcp remote add <username> <remote-name> <git-url> [--dir /data/wikimcp]
-# e.g.
-wikimcp remote add alice github git@github.com:alice/my-wiki.git
-```
-
-```bash
-wikimcp remote remove <username> <remote-name> [--dir /data/wikimcp]
-wikimcp remote list <username> [--dir /data/wikimcp]
-wikimcp remote push <username> [--remote <name>] [--dir /data/wikimcp]
+# add to crontab -e
+*/5 * * * * cd ~/my-wiki && git push origin main 2>/dev/null
 ```
 
 ---
 
-### Export and service
+## Wiki folder structure
 
-```bash
-wikimcp export <username> [--format zip|tar] [--out ./] [--dir /data/wikimcp]
 ```
-Export a user's wiki as a zip or tar.gz archive.
-
-```bash
-wikimcp install-service [--dir /data/wikimcp] [--port 8765]
+~/my-wiki/
+  CLAUDE.md              ← schema and workflow guide (AI reads this at session start)
+  wiki/
+    index.md             ← master catalog of all pages
+    log.md               ← append-only activity log
+    chats/               ← one page per conversation
+    topics/              ← concept and topic pages
+    entities/            ← people, tools, projects
+  raw/                   ← your source documents (AI never modifies these)
+  .git/                  ← full git history
 ```
-Install wikimcp as a system service (systemd on Linux, launchd on macOS) so the server starts on boot automatically.
 
 ---
 
-## MCP Tools Reference
+## MCP tools
 
-All tools are available in both local and server mode. In server mode, the user is resolved from their bearer token before any tool runs.
+9 tools exposed to any MCP-compatible AI client:
 
 | Tool | Arguments | Description |
 |------|-----------|-------------|
-| `wiki_info` | — | Page count, log entry count, wiki root path. Call at session start. |
-| `read_index` | — | Read `wiki/index.md` — the master catalog and starting point for any query. |
+| `wiki_info` | — | Wiki stats + full schema instructions. Called at session start. |
+| `read_index` | — | Read `wiki/index.md` — the master catalog. |
 | `update_index` | `content` | Overwrite `wiki/index.md` and auto-commit. |
 | `write_page` | `path`, `content` | Create or overwrite a wiki page and auto-commit. |
 | `read_page` | `path` | Read a wiki page. |
 | `list_pages` | `subdirectory?` | List all pages (or a subdirectory). |
 | `search_wiki` | `query`, `case_sensitive?` | Full-text search across all pages. |
-| `append_log` | `entry`, `operation?` | Append a timestamped entry to `wiki/log.md` and auto-commit. |
+| `append_log` | `entry`, `operation?` | Append timestamped entry to `wiki/log.md` and auto-commit. |
 | `delete_page` | `path` | Delete a wiki page and auto-commit. |
 
-Every mutating call (`write_page`, `update_index`, `append_log`, `delete_page`) triggers an automatic git commit:
-
-```
-wiki: write_page topics/graph-algorithms.md
-wiki: append_log chat 2026-04-14T10:30:00Z
-wiki: delete_page old-topic.md
-```
-
-Commit author: `wikimcp-bot <wikimcp@localhost>`
+Every write triggers an auto git commit with author `wikimcp-bot <wikimcp@localhost>`.
 
 ---
 
-## Wiki Folder Structure
+## Server mode (multi-user)
 
-```
-~/llm-wiki/                    (wiki root)
-  CLAUDE.md                    ← schema and workflow guide (read by AI at session start)
-  wiki/
-    index.md                   ← master catalog of all pages
-    log.md                     ← append-only activity log
-    chats/                     ← one page per conversation (chat_YYYY-MM-DD_N.md)
-    topics/                    ← concept and topic pages
-    entities/                  ← people, tools, projects
-  raw/                         ← your source documents (AI never modifies these)
-  .git/                        ← full git history
-```
+For teams or hosting wikis for multiple people on a VPS.
 
----
-
-## Auth
-
-### Local mode
-No auth. Server runs on `localhost`, stdio transport.
-
-### Server mode
-Bearer token per user. Every request must include:
-
-```
-Authorization: Bearer wikimcp_<username>_<random32>
-```
-
-Tokens are stored as SHA-256 hashes in `wikimcp.conf` — never plaintext.
-Invalid token → 401. Valid token → user resolved → tool runs against that user's wiki.
-
----
-
-## Server Mode Setup Guide
-
-1. **Provision a VPS** with Python 3.10+ and `git` installed.
-
-2. **Install wikimcp**:
-   ```bash
-   pip install wikimcp
-   ```
-
-3. **Initialise the server**:
-   ```bash
-   wikimcp server init --dir /data/wikimcp --port 8765
-   ```
-
-4. **Add users**:
-   ```bash
-   wikimcp add-user alice --dir /data/wikimcp
-   wikimcp add-user bob   --dir /data/wikimcp
-   ```
-   Give each user their token and the MCP URL.
-
-5. **Install as a system service**:
-   ```bash
-   sudo wikimcp install-service --dir /data/wikimcp --port 8765
-   ```
-
-6. **Point a reverse proxy** (nginx, Caddy) at port 8765 with TLS.
-
-7. **Users configure their AI client** with the MCP URL and token:
-   ```json
-   {
-     "mcpServers": {
-       "wikimcp": {
-         "url": "https://yourserver.com/mcp",
-         "headers": { "Authorization": "Bearer wikimcp_alice_<token>" }
-       }
-     }
-   }
-   ```
-
----
-
-## Web Reader
-
-Each user has a read-only web UI at `https://yourserver.com/wiki/<username>`.
-
-- Authenticate via `?token=<token>` query param or `Authorization: Bearer` header.
-- Pages rendered as HTML from Markdown.
-- Search bar, sidebar page tree, responsive layout.
-- No editing through the UI — the AI writes, you read.
-
----
-
-## Git Sync (Obsidian and local editing)
-
-Users can clone their wiki and edit it locally in Obsidian or any editor:
+### Setup
 
 ```bash
-git clone https://yourserver.com/git/alice my-wiki
-cd my-wiki
-# open in Obsidian
+# 1. Install
+pip install wikimcp
+
+# 2. Initialise server
+wikimcp server init --dir /data/wikimcp --port 8765
+
+# 3. Add users
+wikimcp add-user alice --dir /data/wikimcp
+wikimcp add-user bob   --dir /data/wikimcp
+
+# 4. Start server
+wikimcp server start --dir /data/wikimcp
+
+# 5. (Optional) Install as system service
+sudo wikimcp install-service --dir /data/wikimcp --port 8765
 ```
 
-Edit in Obsidian → `git commit` → `git push origin main` → server picks up changes.
+### What you get
 
-Or set up a GitHub mirror:
+- **MCP endpoint:** `http://host:port/mcp` (bearer-token auth)
+- **Web reader:** `http://host:port/wiki/<username>` (read-only HTML UI)
+- **Git hosting:** `http://host:port/git/<username>` (clone/push over HTTP)
+- **Health check:** `http://host:port/health`
 
-```bash
-wikimcp remote add alice github git@github.com:alice/my-wiki.git --dir /data/wikimcp
-wikimcp remote push alice --remote github --dir /data/wikimcp
+### User config
+
+Each user configures their AI client with:
+
+```json
+{
+  "mcpServers": {
+    "wikimcp": {
+      "url": "https://yourserver.com/mcp",
+      "headers": { "Authorization": "Bearer wikimcp_alice_<token>" }
+    }
+  }
+}
 ```
+
+### Auth
+
+Bearer token per user. Tokens stored as SHA-256 hashes — never plaintext. Manage with `wikimcp add-user`, `remove-user`, `rotate-token`, `list-users`.
+
+---
+
+## CLI reference
+
+```
+wikimcp init [--wiki-dir ~/llm-wiki]
+wikimcp serve [--wiki-dir] [--transport stdio|http] [--host] [--port]
+
+wikimcp server init [--dir /data/wikimcp] [--port 8765]
+wikimcp server start [--dir] [--port] [--host]
+wikimcp server stop
+wikimcp server status [--dir]
+
+wikimcp add-user <username> [--dir]
+wikimcp remove-user <username> [--dir]
+wikimcp list-users [--dir]
+wikimcp rotate-token <username> [--dir]
+
+wikimcp remote add <username> <remote-name> <git-url> [--dir]
+wikimcp remote remove <username> <remote-name> [--dir]
+wikimcp remote list <username> [--dir]
+wikimcp remote push <username> [--remote <name>] [--dir]
+
+wikimcp export <username> [--format zip|tar] [--out ./] [--dir]
+wikimcp install-service [--dir] [--port]
+```
+
+---
+
+## Transport modes
+
+| Transport | Command | Used by |
+|-----------|---------|---------|
+| stdio | `wikimcp serve` (default) | Claude Desktop, LM Studio, Gemini CLI, Claude Code |
+| HTTP | `wikimcp serve --transport http` | ChatGPT, claude.ai (via ngrok) |
+| HTTP | `wikimcp server start` | All clients (always-on multi-user server) |
 
 ---
 
@@ -294,25 +265,19 @@ wikimcp remote push alice --remote github --dir /data/wikimcp
 | Package | Purpose |
 |---------|---------|
 | `mcp[cli]` | FastMCP — MCP server framework |
-| `fastapi` | Web reader + HTTP MCP transport |
-| `uvicorn` | ASGI server for FastAPI |
-| `jinja2` | HTML templates for the web reader |
+| `fastapi` | Web reader + HTTP transport |
+| `uvicorn` | ASGI server |
+| `jinja2` | HTML templates |
 | `click` | CLI framework |
-| `gitpython` | Git operations (commit, push, remote management) |
-| `rich` | Beautiful CLI output (token display, tables, panels) |
-| `markdown` | Markdown-to-HTML rendering in the web reader |
+| `gitpython` | Git operations |
+| `rich` | Terminal formatting |
+| `markdown` | Markdown-to-HTML rendering |
 
 ---
 
-## Transport Modes
+## Credits
 
-| Transport | Command | Used by |
-|-----------|---------|---------|
-| stdio | `wikimcp serve` (default) | Claude Desktop, LM Studio, Gemini CLI, Claude Code |
-| HTTP | `wikimcp serve --transport http` | ChatGPT, claude.ai (via ngrok or public server) |
-| HTTP | `wikimcp server start` | All clients (always-on multi-user server) |
-
----
+Based on the [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) by Andrej Karpathy — the idea that LLMs should incrementally build and maintain a persistent wiki rather than re-deriving knowledge on every query.
 
 ## License
 
