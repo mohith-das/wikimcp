@@ -2,10 +2,10 @@
 
 All notable changes to wikimcp will be documented in this file.
 
-## [0.1.0] - 2026-04-14
+## [0.1.1] - 2026-04-14
 
 ### Added
-- Initial release of wikimcp
+- Initial public release of wikimcp (0.1.0 was a name reservation)
 - MCP server with 9 wiki tools (wiki_info, read_index, update_index, write_page, read_page, list_pages, search_wiki, append_log, delete_page)
 - Git-backed wiki with auto-commit on every write
 - Multi-user support with bearer token authentication
